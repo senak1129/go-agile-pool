@@ -2,7 +2,6 @@ package agilepool
 
 import (
 	"sort"
-	"sync/atomic"
 	"time"
 )
 
@@ -12,13 +11,11 @@ import (
 // Not safe for concurrent use; the caller (Pool) serializes access via muIdle.
 type Slice struct {
 	workers []*worker
-	length  int64
 }
 
 // Add appends a worker to the tail of the slice. O(1) amortized.
 func (s *Slice) Add(w *worker) {
 	s.workers = append(s.workers, w)
-	atomic.AddInt64(&s.length, 1)
 }
 
 // Pop removes and returns the worker at the head of the slice (FIFO).
@@ -30,7 +27,6 @@ func (s *Slice) Pop() *worker {
 	w := s.workers[0]
 	s.workers[0] = nil
 	s.workers = s.workers[1:]
-	atomic.AddInt64(&s.length, -1)
 	return w
 }
 
@@ -57,7 +53,6 @@ func (s *Slice) RemoveExpired(now time.Time, expiry time.Duration) int {
 
 	if removed > 0 {
 		s.workers = s.workers[removed:]
-		atomic.AddInt64(&s.length, -int64(removed))
 	}
 
 	return removed
@@ -65,7 +60,7 @@ func (s *Slice) RemoveExpired(now time.Time, expiry time.Duration) int {
 
 // Len returns the number of workers in the slice.
 func (s *Slice) Len() int64 {
-	return atomic.LoadInt64(&s.length)
+	return int64(len(s.workers))
 }
 
 // newSlice creates a new empty Slice.
